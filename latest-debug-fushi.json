@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "version": "2.10.0-debug.18682",
+  "tag": "v2.10.0-debug.18682+17f3263",
+  "channel": "debug",
+  "prerelease": true,
+  "releaseSequence": 18682,
+  "notes": "Manual desktop debug-channel build from develop @ 17f3263. Debug releases are prerelease and never Latest.",
+  "assets": [
+    {
+      "name": "fushi-2.10.0-debug.18682-windows-setup.exe",
+      "browser_download_url": "https://github.com/5upernova-heng/Fushi/releases/download/fushi-debug-rolling/fushi-2.10.0-debug.18682-windows-setup.exe",
+      "releaseSequence": 18682,
+      "tag": "v2.10.0-debug.18682+17f3263",
+      "version": "2.10.0-debug.18682",
+      "size": 305588377,
+      "sha256": "8b6d931c7d4bd8024fd6cbba4b777c28800cc3dce4e053623a41945fd7e105af"
+    }
+  ]
+}
