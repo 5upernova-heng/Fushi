@@ -5,7 +5,10 @@ import 'package:fushi_engine/mining/immersion_mining_request.dart'
     show MiningClipFormat;
 import 'package:fushi_engine/media/video/video_clip_exporter.dart';
 import 'package:fushi_engine/utils/misc/desktop_audio_clipper.dart'
-    show buildFfmpegRemoteInputArgs;
+    show
+        buildFfmpegRemoteInputArgs,
+        isRemoteFfmpegInput,
+        kRemoteFfmpegSeekLeadSeconds;
 
 /// One timeline for the selected picture and sentence sound, in the container /
 /// codecs of [format] (see [MiningClipFormat]). A pre-trimmed
@@ -54,6 +57,20 @@ List<String> buildSynchronizedVideoClipArgs({
     Map<String, String> requestHeaders,
     String? pin,
   ) {
+    final bool isRemote = isRemoteFfmpegInput(path);
+    final double offsetSeconds = offset < 0 ? 0.0 : offset / 1000.0;
+    final double coarseSeek = (isRemote &&
+            !decodeFromStart &&
+            offsetSeconds > kRemoteFfmpegSeekLeadSeconds)
+        ? offsetSeconds - kRemoteFfmpegSeekLeadSeconds
+        : 0.0;
+    final double fineSeek = (isRemote && !decodeFromStart)
+        ? (offsetSeconds > kRemoteFfmpegSeekLeadSeconds
+            ? kRemoteFfmpegSeekLeadSeconds
+            : offsetSeconds)
+        : offsetSeconds;
+    final bool useTwoStage = isRemote && !decodeFromStart && offsetSeconds > 0;
+
     return <String>[
       // BUG-2625：请求头交给 [buildFfmpegRemoteInputArgs] 统一下发，不在这里自己拼
       // 第二个 `-headers`。本地这份旧实现把 `User-Agent`/`Referer` 也塞进 `-headers`，
@@ -65,14 +82,22 @@ List<String> buildSynchronizedVideoClipArgs({
         tlsPinSha256: pin,
         httpHeaders: requestHeaders,
       ),
-      if (!(decodeFromStart && offset == 0)) ...<String>[
+      if (!decodeFromStart && (!useTwoStage || coarseSeek > 0)) ...<String>[
         '-ss',
-        (offset / 1000).toStringAsFixed(3),
+        (useTwoStage ? coarseSeek : offsetSeconds).toStringAsFixed(3),
       ],
-      '-t',
-      duration,
+      if (!useTwoStage) ...<String>[
+        '-t',
+        duration,
+      ],
       '-i',
       path,
+      if (decodeFromStart || useTwoStage) ...<String>[
+        '-ss',
+        (useTwoStage ? fineSeek : offsetSeconds).toStringAsFixed(3),
+        '-t',
+        duration,
+      ],
     ];
   }
 

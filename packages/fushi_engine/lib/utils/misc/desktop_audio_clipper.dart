@@ -27,9 +27,25 @@ typedef FfmpegFailureReporter = void Function(String summary);
 /// 流 URL（YouTube 分离流、其它远端直链）。本地路径要用 `File.existsSync()` 早退避免喂
 /// ffmpeg 一个不存在的文件；但对 http(s) URL 该守卫会误杀——文件系统里当然没有它。此谓词
 /// 让各抽取器只对本地路径做存在性检查，URL 直接放行给 ffmpeg（ffmpeg 自己吃 http 输入）。
+/// 远端网络流（HTTP/HTTPS）抽取视频/动图时输入端定位的安全回退裕度（秒）。
+///
+/// 根因：对网络流（尤其是远程 MKV / Jellyfin Direct Play）使用单纯的输入端快速
+/// 定位（`-ss` 位于 `-i` 之前）时，Matroska demuxer 无法在网络流上正确向后对齐到
+/// 目标关键帧，导致从非 IDR 帧开始解码，H.264/HEVC 解码器缺少参考帧而触发错误隐藏，
+/// 画面大面积呈现中性灰和运动残差轮廓花屏。
+///
+/// 两段式定位：输入端提前 [kRemoteFfmpegSeekLeadSeconds] 定位以确保覆盖前一个
+/// 关键帧（典型动漫 GOP 约为 10 秒 / 240 帧），解码器建立完整参考帧队列后，
+/// 在 `-i` 之后以输出端定位精准切取目标点，既免去了全量解码长视频的巨大耗时，
+/// 又彻底消除了参考帧缺失花屏。
+const double kRemoteFfmpegSeekLeadSeconds = 10.0;
+
 bool _isRemoteFfmpegInput(String inputPath) {
   return inputPath.startsWith('http://') || inputPath.startsWith('https://');
 }
+
+/// 判定 [inputPath] 是否是远端网络流（HTTP/HTTPS）。
+bool isRemoteFfmpegInput(String inputPath) => _isRemoteFfmpegInput(inputPath);
 
 /// 仅供测试：暴露 [_isRemoteFfmpegInput] 的判定（本地路径 vs http(s) 流 URL）。
 @visibleForTesting
@@ -1059,14 +1075,27 @@ List<String> buildFfmpegFrameArgs({
     if (cropFilter != null && cropFilter.isNotEmpty) cropFilter,
     if (scaleWidth != null && scaleWidth > 0) 'scale=$scaleWidth:-2',
   ].join(',');
+  final bool isRemote = _isRemoteFfmpegInput(inputPath);
+  final double coarseSeek =
+      (isRemote && !decodeFromStart && seek > kRemoteFfmpegSeekLeadSeconds)
+          ? seek - kRemoteFfmpegSeekLeadSeconds
+          : 0.0;
+  final double fineSeek = (isRemote && !decodeFromStart)
+      ? (seek > kRemoteFfmpegSeekLeadSeconds
+          ? kRemoteFfmpegSeekLeadSeconds
+          : seek)
+      : seek;
+  final bool useTwoStage = isRemote && !decodeFromStart && seek > 0;
   return <String>[
     '-y',
     ...buildFfmpegRemoteInputArgs(inputPath,
         tlsPinSha256: tlsPinSha256, httpHeaders: httpHeaders),
-    if (!decodeFromStart) ...<String>['-ss', seek.toStringAsFixed(3)],
+    if (!decodeFromStart && (!useTwoStage || coarseSeek > 0))
+      ...<String>['-ss', (useTwoStage ? coarseSeek : seek).toStringAsFixed(3)],
     '-i',
     inputPath,
-    if (decodeFromStart) ...<String>['-ss', seek.toStringAsFixed(3)],
+    if (decodeFromStart || useTwoStage)
+      ...<String>['-ss', (useTwoStage ? fineSeek : seek).toStringAsFixed(3)],
     '-an',
     if (vfChain.isNotEmpty) ...<String>['-vf', vfChain],
     '-frames:v',
@@ -1284,16 +1313,37 @@ List<String> buildFfmpegClipAnimatedArgs({
     filterArgs = <String>['-vf', chain];
   }
 
+  final bool isRemote = _isRemoteFfmpegInput(inputPath);
+  final double coarseStart =
+      (isRemote && startSeconds > kRemoteFfmpegSeekLeadSeconds)
+          ? startSeconds - kRemoteFfmpegSeekLeadSeconds
+          : 0.0;
+  final double fineStart = isRemote
+      ? (startSeconds > kRemoteFfmpegSeekLeadSeconds
+          ? kRemoteFfmpegSeekLeadSeconds
+          : startSeconds)
+      : startSeconds;
+  final bool useTwoStage = isRemote && startSeconds > 0;
   return <String>[
     '-y',
     ...buildFfmpegRemoteInputArgs(inputPath,
         tlsPinSha256: tlsPinSha256, httpHeaders: httpHeaders),
-    '-ss',
-    startSeconds.toStringAsFixed(3),
-    '-t',
-    durationSeconds.toStringAsFixed(3),
+    if (!useTwoStage || coarseStart > 0) ...<String>[
+      '-ss',
+      (useTwoStage ? coarseStart : startSeconds).toStringAsFixed(3),
+    ],
+    if (!useTwoStage) ...<String>[
+      '-t',
+      durationSeconds.toStringAsFixed(3),
+    ],
     '-i',
     inputPath,
+    if (useTwoStage) ...<String>[
+      '-ss',
+      fineStart.toStringAsFixed(3),
+      '-t',
+      durationSeconds.toStringAsFixed(3),
+    ],
     '-an',
     ...filterArgs,
     ...animatedEncoderArgs(format),
