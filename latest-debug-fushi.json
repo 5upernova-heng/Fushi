@@ -8,6 +8,33 @@
   "notes": "Manual desktop debug-channel build from develop @ 17f3263. Debug releases are prerelease and never Latest.",
   "assets": [
     {
+      "name": "fushi-2.10.0-debug.18682-ios.ipa",
+      "browser_download_url": "https://github.com/5upernova-heng/Fushi/releases/download/fushi-debug-rolling/fushi-2.10.0-debug.18682-ios.ipa",
+      "releaseSequence": 18682,
+      "tag": "v2.10.0-debug.18682+17f3263",
+      "version": "2.10.0-debug.18682",
+      "size": 79446869,
+      "sha256": "3a19f1ce978d14491a76de251cba39ab4660a88520539cd73eedcc6e1cb67c1e"
+    },
+    {
+      "name": "fushi-2.10.0-debug.18682-macos-arm64.dmg",
+      "browser_download_url": "https://github.com/5upernova-heng/Fushi/releases/download/fushi-debug-rolling/fushi-2.10.0-debug.18682-macos-arm64.dmg",
+      "releaseSequence": 18682,
+      "tag": "v2.10.0-debug.18682+17f3263",
+      "version": "2.10.0-debug.18682",
+      "size": 254845642,
+      "sha256": "d87c640e7bc3aac4ac04d39b1fef48c141f5ecc9b958f2a335ed0108e4898bfe"
+    },
+    {
+      "name": "fushi-2.10.0-debug.18682-macos-arm64.zip",
+      "browser_download_url": "https://github.com/5upernova-heng/Fushi/releases/download/fushi-debug-rolling/fushi-2.10.0-debug.18682-macos-arm64.zip",
+      "releaseSequence": 18682,
+      "tag": "v2.10.0-debug.18682+17f3263",
+      "version": "2.10.0-debug.18682",
+      "size": 242971321,
+      "sha256": "4eacbbfde1b5117cdfdf96c8f4b7afe5d52ea54f4e0650aa7927447a56983c88"
+    },
+    {
       "name": "fushi-2.10.0-debug.18682-windows-setup.exe",
       "browser_download_url": "https://github.com/5upernova-heng/Fushi/releases/download/fushi-debug-rolling/fushi-2.10.0-debug.18682-windows-setup.exe",
       "releaseSequence": 18682,
